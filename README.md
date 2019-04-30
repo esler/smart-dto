@@ -55,5 +55,5 @@ $user = $stmt->fetch();
 
 ```
 
-== License
+## License
 MIT
