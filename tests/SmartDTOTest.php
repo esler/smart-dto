@@ -1,80 +1,90 @@
 <?php
 
+declare(strict_types=1);
+
 namespace IW;
+
+use PDO;
+use PHPUnit\Framework\TestCase;
 
 /**
  * Tests class IW\SmartDTO
- *
- * @author     Ondřej Ešler <ondrej.esler@intraworlds.com>
- * @version    SVN: $Id: $
  */
-final class SmartDTOTest extends \PHPUnit\Framework\TestCase
+final class SmartDTOTest extends TestCase
 {
-    private $_userDTO;
+    /** @var UserDTO */
+    private $userDTO;
 
     /**
      * @before
      */
-    function createDTO() {
-        $this->_userDTO = new UserDTO;
+    public function createDTO() : void
+    {
+        $this->userDTO = new UserDTO();
     }
 
-    function testSmartDTO() {
-        $this->_userDTO->id = 123;
-        $this->_userDTO->username = 'joe.doe';
+    public function testSmartDTO() : void
+    {
+        $this->userDTO->id       = 123;
+        $this->userDTO->username = 'joe.doe';
 
-        $this->assertObjectHasAttribute('id', $this->_userDTO);
-        $this->assertSame(123, $this->_userDTO->id);
-        $this->assertObjectHasAttribute('username', $this->_userDTO);
-        $this->assertSame('joe.doe', $this->_userDTO->username);
+        $this->assertObjectHasAttribute('id', $this->userDTO);
+        $this->assertSame(123, $this->userDTO->id);
+        $this->assertObjectHasAttribute('username', $this->userDTO);
+        $this->assertSame('joe.doe', $this->userDTO->username);
     }
 
     /**
      * @depends testSmartDTO
      */
-    function testFailWhenUndefinedPropertyRead() {
+    public function testFailWhenUndefinedPropertyRead() : void
+    {
         $this->expectException('InvalidArgumentException');
         $this->expectExceptionMessage('Trying to read unknown property "im_nobody"');
-        $this->_userDTO->im_nobody;
+        $this->userDTO->im_nobody;
     }
 
     /**
      * @depends testSmartDTO
      */
-    function testFailWhenUndefinedPropertyWrite() {
+    public function testFailWhenUndefinedPropertyWrite() : void
+    {
         $this->expectException('InvalidArgumentException');
         $this->expectExceptionMessage('Trying write to unknown property "im_nobody"');
-        $this->_userDTO->im_nobody = 'Arya';
+        $this->userDTO->im_nobody = 'Arya';
     }
 
     /**
      * @depends testSmartDTO
      */
-    function testPrivateProperty() {
-        $this->assertTrue(isset($this->_userDTO->role));
-        $this->assertSame('member', $this->_userDTO->role);
-        $this->_userDTO->role = 'admin';
-        $this->assertSame('admin', $this->_userDTO->role);
+    public function testPrivateProperty() : void
+    {
+        $this->assertTrue(isset($this->userDTO->role));
+        $this->assertSame('member', $this->userDTO->role);
+        $this->userDTO->role = 'admin';
+        $this->assertSame('admin', $this->userDTO->role);
     }
 
     /**
      * @depends testSmartDTO
      */
-    function testWriteTroughTheHandler() {
-        $this->_userDTO->config = ['foo' => 'bar'];
-        $this->assertSame(['foo' => 'bar'], $this->_userDTO->config);
+    public function testWriteTroughTheHandler() : void
+    {
+        $this->userDTO->config = ['foo' => 'bar'];
+        $this->assertSame(['foo' => 'bar'], $this->userDTO->config);
 
-        $this->_userDTO->config = '{"hello":"world"}';
-        $this->assertIsArray($this->_userDTO->config);
-        $this->assertSame(['hello' => 'world'], $this->_userDTO->config);
+        $this->userDTO->config = '{"hello":"world"}';
+        $this->assertIsArray($this->userDTO->config);
+        $this->assertSame(['hello' => 'world'], $this->userDTO->config);
     }
 
     /**
      * @depends testSmartDTO
      */
-    function testFetchingFromPDO() {
-        $pdo = new \PDO('sqlite:db');
-        $stmt = $pdo->query('SELECT * FROM user', \PDO::FETCH_CLASS, UserDTO::class);
+    public function testFetchingFromPDO() : void
+    {
+        $pdo  = new PDO('sqlite:db');
+        $stmt = $pdo->query('SELECT * FROM user', PDO::FETCH_CLASS, UserDTO::class);
 
         $results = $stmt->fetchAll();
         $this->assertIsArray($results);
@@ -84,8 +94,9 @@ final class SmartDTOTest extends \PHPUnit\Framework\TestCase
         $this->assertIsArray($userDTO->config); // json_decode when loading
     }
 
-    function testHydratation() {
-        $userDTO = new UserDTO;
+    public function testHydratation() : void
+    {
+        $userDTO = new UserDTO();
         $this->assertNull($userDTO->id);
         $userDTO->hydrate(['id' => 951]);
         $this->assertSame(951, $userDTO->id);
@@ -94,8 +105,9 @@ final class SmartDTOTest extends \PHPUnit\Framework\TestCase
     /**
      * @depends testHydratation
      */
-    function testExtraction() {
-        $userDTO = new UserDTO;
+    public function testExtraction() : void
+    {
+        $userDTO = new UserDTO();
         $userDTO->hydrate(['id' => 666, 'username' => 'Spiderman', 'config' => ['foo' => 'bar']]);
 
         $expected = ['id' => 666, 'username' => 'Spiderman', 'role' => 'member', 'config' => ['foo' => 'bar']];
@@ -105,7 +117,9 @@ final class SmartDTOTest extends \PHPUnit\Framework\TestCase
     /**
      * @depends testExtraction
      */
-    function testSnakeCase() {
+    public function testSnakeCase() : void
+    {
+        // phpcs:disable
         $dto = new class {
             use SmartDTO;
 
@@ -113,10 +127,12 @@ final class SmartDTOTest extends \PHPUnit\Framework\TestCase
             private $_contact_email;
             private $my_buddies = [];
 
-            public function setMyBuddies(array $myBuddies): void {
+            public function setMyBuddies(array $myBuddies) : void
+            {
                 $this->my_buddies = $myBuddies;
             }
         };
+        // phpcs:enable
 
         $dto->access_rights = ['guest'];
         $dto->contact_email = 'simba@example.com';
@@ -134,7 +150,9 @@ final class SmartDTOTest extends \PHPUnit\Framework\TestCase
     /**
      * @depends testExtraction
      */
-    function testCamelCase() {
+    public function testCamelCase() : void
+    {
+        // phpcs:disable
         $dto = new class {
             use SmartDTO;
 
@@ -142,10 +160,12 @@ final class SmartDTOTest extends \PHPUnit\Framework\TestCase
             private $_contactEmail;
             private $myBuddies = [];
 
-            public function setMyBuddies(array $myBuddies): void {
+            public function setMyBuddies(array $myBuddies) : void
+            {
                 $this->myBuddies = $myBuddies;
             }
         };
+        // phpcs:enable
 
         $dto->accessRights = ['guest'];
         $dto->contactEmail = 'simba@example.com';
@@ -158,23 +178,5 @@ final class SmartDTOTest extends \PHPUnit\Framework\TestCase
         ];
 
         $this->assertSame($expected, $dto->extract());
-    }
-}
-
-final class UserDTO
-{
-    use SmartDTO;
-
-    public $id;
-    public $username;
-    private $_role = 'member';
-    private $_config;
-
-    private function setConfig($value) {
-        if (is_string($value)) {
-            $this->_config = json_decode($value, true);
-        } else {
-            $this->_config = $value;
-        }
     }
 }
